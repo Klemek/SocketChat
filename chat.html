@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <title>Klemek's Chat</title>
+    <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font: 13px Roboto, sans-serif;
+            color:#FAFAFA;
+            background-color: #212121;
+        }
+
+        form {
+            border-top: 1px solid #E0E0E0;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            height:6vh;
+        }
+
+        form input {
+            width: 90%;
+            height:100%;
+            border: 0;
+            padding: 10px;
+            margin-right: .5%;
+            background-color: #424242;
+            color:#fff;
+        }
+
+        input:focus{
+            outline: none;
+            background-color: #616161;
+        }
+
+        form button {
+            position:absolute;
+            right:0;
+            width: 10%;
+            height:100%;
+            background: #33691E;
+            border: none;
+            padding: 10px;
+            cursor:pointer;
+            color:#fff;
+        }
+
+        form button:hover {
+            background: #558B2F;
+        }
+
+        ul {
+            list-style-type: none;
+            margin: 0;
+            padding: 0;
+            height:94vh;
+            overflow-y: scroll;
+            scroll-behavior:smooth;
+            overflow-x: hidden;
+            overflow-wrap:break-word;
+        }
+
+        li {
+            padding: 5px 10px;
+        }
+
+        li:nth-child(odd) {
+            background: #424242;
+        }
+
+        li.important{
+            background: #01579B;
+            font-weight: bold;
+        }
+
+        li img{
+            max-width:50%;
+            max-height:50vh;
+        }
+
+        li .name{
+            cursor:pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <ul id="messages">
+            <li v-for="m in msgs" v-bind:style="{color:m.color}" v-bind:class="{important:isImportant(m.text)&&m.name}">
+                <span v-if="m.name"><b class="name" v-on:click="add(m.name)">{{m.name}}</b>&nbsp;&gt;&nbsp;{{m.text}}</span>
+                <i v-else v-html="m.text"></i>
+            </li>
+        </ul>
+        <form v-on:submit.prevent="onSubmit" action="">
+            <input v-model="msg" autocomplete="off"/>
+            <button>Send</button>
+        </form>
+    </div>
+
+    <script>
+        const app = new Vue({
+            el: '#app',
+            data: {
+                msg:'',
+                msgs:[],
+                connected:false,
+                lastConnected:false,
+                name:'',
+                color:''
+            },
+            methods: {
+                scrollDown:function(){
+                    setTimeout(function(){
+                        var obj = document.getElementById("messages");
+                        obj.scrollTop = obj.scrollHeight;
+                    });
+                },
+                onSubmit:function(){
+                    const self = this;
+                    if(self.connected && self.msg){
+                        self.socket.emit('chat message', self.msg);
+                    }
+                    self.msg = '';
+                },
+                isImportant:function(text){
+                    return this.name && text.indexOf(this.name) >= 0;
+                },
+                add:function(text){
+                    this.msg += text;
+                }
+            },
+            created: function(){
+                const self = this;
+                self.msgs.push({
+                    color:'#999',
+                    name:'',
+                    text:'Connecting...'
+                });
+                self.socket = io({
+                    'reconnection': true,
+                    'reconnectionDelay': 1000,
+                    'reconnectionDelayMax' : 5000
+                });
+                self.socket.on('connect', function () {
+                    self.connected = true;
+                    self.lastConnected = true;
+                    self.msgs.push({
+                        color:'#999',
+                        name:'',
+                        text:'Connected'
+                    });
+                    if(self.name)
+                        self.socket.emit('chat message', '/nick '+self.name);
+                    if(self.color)
+                        self.socket.emit('chat message', '/color '+self.color);
+                });
+                self.socket.on('chat message', function (m) {
+                    self.msgs.push(m);
+                    self.scrollDown();
+                    if(Notification.permission === 'granted'){
+                        if(m.name && m.name !== self.name){
+                            var n = new Notification("Klemek's Chat", {tag:'chat', body: m.name+'>'+m.text});
+                            n.onshow = function () {setTimeout(n.close.bind(n), 2000);}
+                        }
+                    }
+                });
+                self.socket.on('new name', function (m) {
+                    self.name = m;
+                });
+                self.socket.on('new color', function (m) {
+                    self.color = m;
+                });
+                self.socket.on('disconnect', function () {
+                    self.msgs.push({
+                        color:'#999',
+                        name:'',
+                        text:'Disconnected'
+                    });
+                    self.connected = false;
+                    self.scrollDown();
+                });
+                Notification.requestPermission(function (status) {
+                    if (Notification.permission !== status) {
+                        Notification.permission = status;
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
