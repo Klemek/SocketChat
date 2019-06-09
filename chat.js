@@ -44,7 +44,7 @@ io.on('connection', function (socket) {
     socket.iid = randint(9999999);
     socket.name = 'anonymous#' + ('0000' + randint(0,9999)).slice(-4);
     socket.color = randomColor();
-    list[socket.iid] = socket;
+    list['u'+socket.iid] = socket;
     console.log(socket.name + ' connected');
     socket.emit('chat message', {
         color: '#fff',
@@ -61,7 +61,7 @@ io.on('connection', function (socket) {
         text: '<span style="color:' + socket.color + '">' + escapeHtml(socket.name) + '</span> connected.'
     });
     socket.on('disconnect', function () {
-        delete list[socket.iid];
+        delete list['u'+socket.iid];
         console.log(socket.name + ' disconnected');
         io.emit('chat message', {
             color: '#fff',
